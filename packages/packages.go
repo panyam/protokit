@@ -29,6 +29,9 @@ type PackageInfo struct {
 // ExtractPackageInfo extracts clean import path and alias from a protogen message.
 // Handles buf-managed packages with ;packagename suffix.
 func ExtractPackageInfo(msg *protogen.Message) PackageInfo {
+	if msg == nil {
+		return PackageInfo{}
+	}
 	raw := string(msg.GoIdent.GoImportPath)
 	importPath := raw
 	if idx := strings.Index(raw, ";"); idx >= 0 {
@@ -43,6 +46,9 @@ func ExtractPackageInfo(msg *protogen.Message) PackageInfo {
 // ExtractGoPackageName extracts the Go package name from a protogen message.
 // Prefers the ;suffix override, falls back to last path segment.
 func ExtractGoPackageName(msg *protogen.Message) string {
+	if msg == nil {
+		return ""
+	}
 	raw := string(msg.GoIdent.GoImportPath)
 	if idx := strings.Index(raw, ";"); idx >= 0 {
 		return raw[idx+1:]
