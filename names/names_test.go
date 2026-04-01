@@ -99,7 +99,7 @@ func TestSanitizeIdentifier(t *testing.T) {
 		{"_private", "_private"},
 		{"has.dot", "has_dot"},
 		{"has spaces", "has_spaces"},
-		{"", ""},
+		{"", "identifier"},
 		{"a", "a"},
 		{"CamelCase", "CamelCase"},
 		{"with$special@chars", "with_special_chars"},

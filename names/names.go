@@ -55,7 +55,7 @@ func ToSnakeCase(s string) string {
 // "user-name" -> "user_name", "123invalid" -> "_23invalid"
 func SanitizeIdentifier(name string) string {
 	if len(name) == 0 {
-		return name
+		return "identifier"
 	}
 	var result strings.Builder
 	for i, r := range name {
