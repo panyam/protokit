@@ -64,6 +64,7 @@ type TestEnumValue struct {
 type TestService struct {
 	Name    string
 	Methods []TestMethod
+	Options *descriptorpb.ServiceOptions // Generic — plugins set their own extensions
 }
 
 // TestMethod represents a service RPC method.
@@ -73,6 +74,7 @@ type TestMethod struct {
 	OutputType      string // fully qualified message name
 	ClientStreaming bool
 	ServerStreaming bool
+	Options         *descriptorpb.MethodOptions // Generic — plugins set their own extensions
 }
 
 // CreateTestPlugin creates a protogen.Plugin from a test proto set.
@@ -287,7 +289,10 @@ func buildEnumDescriptor(e TestEnum) *descriptorpb.EnumDescriptorProto {
 }
 
 func buildServiceDescriptor(svc TestService) *descriptorpb.ServiceDescriptorProto {
-	sd := &descriptorpb.ServiceDescriptorProto{Name: proto.String(svc.Name)}
+	sd := &descriptorpb.ServiceDescriptorProto{
+		Name:    proto.String(svc.Name),
+		Options: svc.Options,
+	}
 	for _, m := range svc.Methods {
 		sd.Method = append(sd.Method, &descriptorpb.MethodDescriptorProto{
 			Name:            proto.String(m.Name),
@@ -295,6 +300,7 @@ func buildServiceDescriptor(svc TestService) *descriptorpb.ServiceDescriptorProt
 			OutputType:      proto.String("." + m.OutputType),
 			ClientStreaming: proto.Bool(m.ClientStreaming),
 			ServerStreaming: proto.Bool(m.ServerStreaming),
+			Options:         m.Options,
 		})
 	}
 	return sd
