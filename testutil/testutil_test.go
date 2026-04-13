@@ -1,17 +1,3 @@
-// Copyright 2025 Sri Panyam
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//  http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package testutil
 
 import (
@@ -172,5 +158,211 @@ func TestRepeatedField(t *testing.T) {
 	}
 	if fields.IsRepeated(list.Fields[1]) {
 		t.Error("Expected 'count' to not be repeated")
+	}
+}
+
+func TestEnumField(t *testing.T) {
+	protoSet := &TestProtoSet{
+		Files: []TestFile{
+			{
+				Name: "test.proto",
+				Pkg:  "test.v1",
+				Enums: []TestEnum{
+					{
+						Name: "Status",
+						Values: []TestEnumValue{
+							{Name: "UNKNOWN", Number: 0},
+							{Name: "ACTIVE", Number: 1},
+							{Name: "INACTIVE", Number: 2},
+						},
+					},
+				},
+				Messages: []TestMessage{
+					{
+						Name: "Msg",
+						Fields: []TestField{
+							{Name: "status", Number: 1, EnumType: "test.v1.Status"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plugin := CreateTestPlugin(t, protoSet)
+	msg := plugin.Files[0].Messages[0]
+
+	if len(msg.Fields) != 1 {
+		t.Fatalf("Expected 1 field, got %d", len(msg.Fields))
+	}
+	if msg.Fields[0].Desc.Kind().String() != "enum" {
+		t.Errorf("Expected enum kind, got %s", msg.Fields[0].Desc.Kind())
+	}
+	enumDesc := msg.Fields[0].Desc.Enum()
+	if enumDesc == nil {
+		t.Fatal("Expected non-nil enum descriptor")
+	}
+	if enumDesc.Values().Len() != 3 {
+		t.Errorf("Expected 3 enum values, got %d", enumDesc.Values().Len())
+	}
+}
+
+func TestOneofField(t *testing.T) {
+	protoSet := &TestProtoSet{
+		Files: []TestFile{
+			{
+				Name: "test.proto",
+				Pkg:  "test.v1",
+				Messages: []TestMessage{
+					{
+						Name:   "Msg",
+						Oneofs: []string{"value"},
+						Fields: []TestField{
+							{Name: "text", Number: 1, TypeName: "string", OneofIndex: 0},
+							{Name: "number", Number: 2, TypeName: "int32", OneofIndex: 0},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plugin := CreateTestPlugin(t, protoSet)
+	msg := plugin.Files[0].Messages[0]
+
+	if len(msg.Oneofs) != 1 {
+		t.Fatalf("Expected 1 oneof, got %d", len(msg.Oneofs))
+	}
+	if string(msg.Oneofs[0].Desc.Name()) != "value" {
+		t.Errorf("Expected oneof name 'value', got '%s'", msg.Oneofs[0].Desc.Name())
+	}
+
+	// Both fields should belong to the oneof.
+	for _, f := range msg.Fields {
+		if f.Desc.ContainingOneof() == nil {
+			t.Errorf("Field %s should be in a oneof", f.Desc.Name())
+		}
+	}
+}
+
+func TestOptionalField(t *testing.T) {
+	protoSet := &TestProtoSet{
+		Files: []TestFile{
+			{
+				Name: "test.proto",
+				Pkg:  "test.v1",
+				Messages: []TestMessage{
+					{
+						Name: "Msg",
+						Fields: []TestField{
+							{Name: "required", Number: 1, TypeName: "string"},
+							{Name: "optional", Number: 2, TypeName: "string", Optional: true},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plugin := CreateTestPlugin(t, protoSet)
+	msg := plugin.Files[0].Messages[0]
+
+	if msg.Fields[0].Desc.HasOptionalKeyword() {
+		t.Error("'required' field should not have optional keyword")
+	}
+	if !msg.Fields[1].Desc.HasOptionalKeyword() {
+		t.Error("'optional' field should have optional keyword")
+	}
+}
+
+func TestServiceSupport(t *testing.T) {
+	protoSet := &TestProtoSet{
+		Files: []TestFile{
+			{
+				Name: "test.proto",
+				Pkg:  "test.v1",
+				Messages: []TestMessage{
+					{Name: "GetReq", Fields: []TestField{{Name: "id", Number: 1, TypeName: "string"}}},
+					{Name: "GetResp", Fields: []TestField{{Name: "name", Number: 1, TypeName: "string"}}},
+				},
+				Services: []TestService{
+					{
+						Name: "UserService",
+						Methods: []TestMethod{
+							{
+								Name:       "GetUser",
+								InputType:  "test.v1.GetReq",
+								OutputType: "test.v1.GetResp",
+							},
+							{
+								Name:            "StreamUsers",
+								InputType:       "test.v1.GetReq",
+								OutputType:      "test.v1.GetResp",
+								ServerStreaming:  true,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	plugin := CreateTestPlugin(t, protoSet)
+	file := plugin.Files[0]
+
+	if len(file.Services) != 1 {
+		t.Fatalf("Expected 1 service, got %d", len(file.Services))
+	}
+
+	svc := file.Services[0]
+	if string(svc.Desc.Name()) != "UserService" {
+		t.Errorf("Expected service name 'UserService', got '%s'", svc.Desc.Name())
+	}
+	if len(svc.Methods) != 2 {
+		t.Fatalf("Expected 2 methods, got %d", len(svc.Methods))
+	}
+
+	getUser := svc.Methods[0]
+	if string(getUser.Desc.Name()) != "GetUser" {
+		t.Errorf("Expected method 'GetUser', got '%s'", getUser.Desc.Name())
+	}
+	if getUser.Desc.IsStreamingClient() || getUser.Desc.IsStreamingServer() {
+		t.Error("GetUser should not be streaming")
+	}
+
+	streamUsers := svc.Methods[1]
+	if !streamUsers.Desc.IsStreamingServer() {
+		t.Error("StreamUsers should be server-streaming")
+	}
+	if streamUsers.Desc.IsStreamingClient() {
+		t.Error("StreamUsers should not be client-streaming")
+	}
+}
+
+func TestAllScalarTypes(t *testing.T) {
+	// Verify all scalar type mappings work.
+	scalars := []string{"string", "int32", "sint32", "sfixed32", "int64", "sint64", "sfixed64",
+		"uint32", "fixed32", "uint64", "fixed64", "bool", "float", "double", "bytes"}
+
+	var testFields []TestField
+	for i, s := range scalars {
+		testFields = append(testFields, TestField{Name: s + "_field", Number: int32(i + 1), TypeName: s})
+	}
+
+	protoSet := &TestProtoSet{
+		Files: []TestFile{
+			{
+				Name:     "test.proto",
+				Pkg:      "test.v1",
+				Messages: []TestMessage{{Name: "AllScalars", Fields: testFields}},
+			},
+		},
+	}
+
+	plugin := CreateTestPlugin(t, protoSet)
+	msg := plugin.Files[0].Messages[0]
+
+	if len(msg.Fields) != len(scalars) {
+		t.Fatalf("Expected %d fields, got %d", len(scalars), len(msg.Fields))
 	}
 }
