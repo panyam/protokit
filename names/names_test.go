@@ -70,13 +70,18 @@ func TestToSnakeCase(t *testing.T) {
 	}{
 		{"FindBooks", "find_books"},
 		{"getUser", "get_user"},
-		{"ID", "i_d"},
+		{"ID", "id"},
 		{"simpleCase", "simple_case"},
-		{"HTTPServer", "h_t_t_p_server"},
+		{"HTTPServer", "http_server"},
+		{"HTMLParser", "html_parser"},
+		{"GetUserByID", "get_user_by_id"},
+		{"OAuth2Token", "o_auth2token"},
 		{"a", "a"},
 		{"A", "a"},
 		{"", ""},
 		{"alreadysnake", "alreadysnake"},
+		{"ABC", "abc"},
+		{"CreateDeckV2", "create_deck_v2"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {

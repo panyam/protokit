@@ -35,13 +35,21 @@ func ToPascalCase(s string) string {
 	return strings.ToUpper(s[:1]) + s[1:]
 }
 
-// ToSnakeCase converts camelCase/PascalCase to snake_case. "FindBooks" -> "find_books"
+// ToSnakeCase converts camelCase/PascalCase to snake_case.
+// Handles acronyms correctly: "HTMLParser" -> "html_parser", "GetUserByID" -> "get_user_by_id".
 func ToSnakeCase(s string) string {
 	var result strings.Builder
 	for i, r := range s {
 		if unicode.IsUpper(r) {
 			if i > 0 {
-				result.WriteRune('_')
+				prev := rune(s[i-1])
+				// Insert underscore before uppercase if previous char is lowercase,
+				// or if next char is lowercase (handles acronym boundaries like "HTMLParser").
+				if unicode.IsLower(prev) {
+					result.WriteByte('_')
+				} else if unicode.IsUpper(prev) && i+1 < len(s) && unicode.IsLower(rune(s[i+1])) {
+					result.WriteByte('_')
+				}
 			}
 			result.WriteRune(unicode.ToLower(r))
 		} else {
